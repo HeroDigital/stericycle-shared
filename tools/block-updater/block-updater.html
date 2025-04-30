@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DA App SDK Sample</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link rel="icon" href="data:,">
+    <!-- Import DA App SDK -->
+    <script src="https://da.live/nx/utils/sdk.js" type="module"></script>
+    <!-- Project App Logic -->
+    <script src="/tools/block-updater/block-updater.js" type="module"></script>
+    <style>
+      body {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>Hello from block-updater!</main>
+    <div class="metadata-updater">
+      <input type="text" id="metadataKey" placeholder="Metadata key (e.g. locale)" />
+      <input type="text" id="metadataValue" placeholder="New value (e.g. en-ca)" />
+      <button id="updateBlocksButton">Update Blocks</button>
+    </div>
+    <script type="module">
+      import { updateBlocks } from './block-updater.js';
+      
+      document.getElementById('updateBlocksButton').addEventListener('click', () => {
+        const key = document.getElementById('metadataKey').value;
+        const value = document.getElementById('metadataValue').value;
+        
+        if (!key || !value) {
+          alert('Please provide both a key and value');
+          return;
+        }
+        
+        updateBlocks(key, value);
+      });
+    </script>
+  </body>
+</html>
