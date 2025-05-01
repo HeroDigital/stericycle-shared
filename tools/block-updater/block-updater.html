@@ -8,81 +8,41 @@
     <script src="https://da.live/nx/utils/sdk.js" type="module"></script>
     <!-- Project App Logic -->
     <script src="/tools/block-updater/block-updater.js" type="module"></script>
-    <style>
-      body {
-        margin: 0;
-      }
-      .metadata-updater {
-        padding: 20px;
-      }
-      .input-group {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-      }
-      .input-group input {
-        padding: 8px;
-        flex: 1;
-      }
-      .button-group {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-      }
-      .results-table {
-        margin-top: 20px;
-      }
-      .results-table table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      .results-table th, .results-table td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: left;
-      }
-      .results-table th {
-        background-color: #f5f5f5;
-      }
-      .metadata-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9em;
-      }
-      .metadata-table td {
-        padding: 4px 8px;
-        border: 1px solid #eee;
-      }
-      .metadata-row-changed {
-        background-color: #fff3cd;
-      }
-      .metadata-key {
-        font-weight: bold;
-        width: 20%;
-      }
-      .metadata-value {
-        width: 40%;
-      }
-    </style>
+    <link rel="stylesheet" href="block-updater.css">
   </head>
   <body>
-    <main>Hello from block-updater!</main>
+    <h1>Block Updater</h1>
     <div class="metadata-updater">
       <div class="input-group">
-        <input type="text" id="rootPath" placeholder="Root path (e.g. /herodigital/stericycle-shared/en-ca)" value="/herodigital/stericycle-shared/en-ca" />
-        <input type="text" id="metadataKey" placeholder="Metadata key (e.g. locale)" />
-        <input type="text" id="metadataValue" placeholder="New value (e.g. en-ca)" />
+        <div class="input-field">
+          <label for="rootPath">Root Path</label>
+          <input type="text" id="rootPath" placeholder="e.g. /herodigital/stericycle-shared/en-ca" value="/herodigital/stericycle-shared/en-ca" />
+        </div>
+        <div class="input-field">
+          <label for="metadataKey">Metadata Key</label>
+          <input type="text" id="metadataKey" placeholder="e.g. locale" />
+        </div>
+        <div class="input-field">
+          <label for="metadataValue">New Value</label>
+          <input type="text" id="metadataValue" placeholder="e.g. en-ca" />
+        </div>
       </div>
       <div class="button-group">
         <button id="dryRunButton">Dry Run</button>
         <button id="updateBlocksButton">Update Blocks</button>
       </div>
       <div id="dryRunResults" class="results-table" style="display: none;">
+        <div class="results-summary"></div>
+        <div class="loading-spinner" style="display: none;">
+          <div class="spinner"></div>
+          <div class="spinner-text">Processing files...</div>
+        </div>
         <table>
           <thead>
             <tr>
               <th>Path</th>
-              <th>Diff</th>
+              <th>Before</th>
+              <th>After</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -180,37 +140,81 @@
         return { rootPath, key, value };
       }
 
-      async function displayResults(results) {
+      function showLoading(show) {
         const resultsTable = document.getElementById('dryRunResults');
-        const tbody = resultsTable.querySelector('tbody');
-        tbody.innerHTML = ''; // Clear previous results
+        const spinner = resultsTable.querySelector('.loading-spinner');
+        const table = resultsTable.querySelector('table');
         
-        results.forEach(({ path, before, after }) => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${path}</td>
-            <td colspan="2">${compareMetadataTables(before, after)}</td>
-          `;
-          tbody.appendChild(row);
-        });
-        
-        resultsTable.style.display = 'block';
+        if (show) {
+          spinner.style.display = 'flex';
+          table.style.display = 'none';
+          resultsTable.style.display = 'block';
+        } else {
+          spinner.style.display = 'none';
+          table.style.display = 'table';
+        }
       }
 
-      document.getElementById('updateBlocksButton').addEventListener('click', async () => {
-        const inputs = getInputValues();
-        if (!inputs) return;
+      async function displayResults(results) {
+        const resultsTable = document.getElementById('dryRunResults');
+        const summary = resultsTable.querySelector('.results-summary');
+        const tbody = resultsTable.querySelector('tbody');
         
-        const results = await updateBlocks(inputs.rootPath, inputs.key, inputs.value);
-        await displayResults(results);
-      });
+        // Show loading state
+        showLoading(true);
+        
+        try {
+          // Clear previous results
+          tbody.innerHTML = '';
+          
+          // Update summary
+          summary.textContent = `Found ${results.length} file${results.length !== 1 ? 's' : ''} with matching metadata`;
+          
+          // Process and display results
+          results.forEach(({ path, before, after }) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${path}</td>
+              <td colspan="2">${compareMetadataTables(before, after)}</td>
+            `;
+            tbody.appendChild(row);
+          });
+        } finally {
+          // Hide loading state
+          showLoading(false);
+        }
+      }
 
       document.getElementById('dryRunButton').addEventListener('click', async () => {
         const inputs = getInputValues();
         if (!inputs) return;
         
-        const results = await dryRun(inputs.rootPath, inputs.key, inputs.value);
-        await displayResults(results);
+        showLoading(true);
+        try {
+          const results = await dryRun(inputs.rootPath, inputs.key, inputs.value);
+          await displayResults(results);
+        } catch (error) {
+          console.error('Error during dry run:', error);
+          alert('An error occurred while processing the files');
+        } finally {
+          showLoading(false);
+        }
+      });
+
+      document.getElementById('updateBlocksButton').addEventListener('click', async () => {
+        const inputs = getInputValues();
+        if (!inputs) return;
+        
+        showLoading(true);
+        try {
+          const results = await updateBlocks(inputs.rootPath, inputs.key, inputs.value);
+          await displayResults(results);
+        } catch (error) {
+          console.error('Error during update:', error);
+          alert('An error occurred while updating the files');
+        } finally {
+          showLoading(false);
+        }
       });
     </script>
   </body>
