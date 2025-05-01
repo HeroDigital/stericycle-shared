@@ -55,29 +55,29 @@ const createCallback = (key, newValue, isDryRun = false) => async (item) => {
     return;
   }
 
-  if (isDryRun) {
-    return {
-      path: item.path,
-      before: result.before,
-      after: result.after
-    };
+  if (!isDryRun) {
+    const html = dom.body.outerHTML;
+    const data = new Blob([html], { type: 'text/html' });
+
+    const body = new FormData();
+    body.append('data', data);
+
+    const opts = { method: 'POST', body };
+    const { status } = await fetch(url, opts);
+    console.log(`Update HTTP status: ${status} - Path: ${item.path}`);
   }
 
-  const html = dom.body.outerHTML;
-  const data = new Blob([html], { type: 'text/html' });
-
-  const body = new FormData();
-  body.append('data', data);
-
-  const opts = { method: 'POST', body };
-  const { status } = await fetch(url, opts);
-  console.log(`Update HTTP status: ${status} - Path: ${item.path}`);
+  return {
+    path: item.path,
+    before: result.before,
+    after: result.after,
+    status: isDryRun ? 'dry-run' : `HTTP status: ${status}`
+  };
 }
 
-// Dry run function that returns preview of changes
-export async function dryRun(rootPath, key, value) {
+async function executeUpdate(rootPath, key, value, isDryRun = false) {
   const results = [];
-  const callback = createCallback(key, value, true);
+  const callback = createCallback(key, value, isDryRun);
   
   const { results: crawlResults } = await crawl({
     path: rootPath,
@@ -95,20 +95,18 @@ export async function dryRun(rootPath, key, value) {
     concurrent: 50
   });
 
-  // console.log('Found results:', crawlResults.length); // Debug log
-
   await crawlResults;
-
   return results;
 }
 
-// Crawl the tree of content
+// Dry run function that returns preview of changes
+export async function dryRun(rootPath, key, value) {
+  return executeUpdate(rootPath, key, value, true);
+}
+
+// Crawl the tree of content and update files
 export async function updateBlocks(rootPath, key, value) {
   console.log(`Updating metadata: ${key} = ${value}`);
-  const { results } = crawl({ 
-    path: rootPath, 
-    callback: createCallback(key, value), 
-    concurrent: 50 
-  });
-  await results;
+  return executeUpdate(rootPath, key, value, false);
 }
+

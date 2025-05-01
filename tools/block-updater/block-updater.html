@@ -161,34 +161,23 @@
         return tableHtml;
       }
 
-      document.getElementById('updateBlocksButton').addEventListener('click', () => {
+      function getInputValues() {
         const rootPath = document.getElementById('rootPath').value;
         const key = document.getElementById('metadataKey').value;
         const value = document.getElementById('metadataValue').value;
         
         if (!rootPath || !key || !value) {
           alert('Please provide root path, key, and value');
-          return;
+          return null;
         }
         
-        updateBlocks(rootPath, key, value);
-      });
+        return { rootPath, key, value };
+      }
 
-      document.getElementById('dryRunButton').addEventListener('click', async () => {
-        const rootPath = document.getElementById('rootPath').value;
-        const key = document.getElementById('metadataKey').value;
-        const value = document.getElementById('metadataValue').value;
-        
-        if (!rootPath || !key || !value) {
-          alert('Please provide root path, key, and value');
-          return;
-        }
-        
+      async function displayResults(results) {
         const resultsTable = document.getElementById('dryRunResults');
         const tbody = resultsTable.querySelector('tbody');
         tbody.innerHTML = ''; // Clear previous results
-        
-        const results = await dryRun(rootPath, key, value);
         
         results.forEach(({ path, before, after }) => {
           const row = document.createElement('tr');
@@ -200,6 +189,22 @@
         });
         
         resultsTable.style.display = 'block';
+      }
+
+      document.getElementById('updateBlocksButton').addEventListener('click', async () => {
+        const inputs = getInputValues();
+        if (!inputs) return;
+        
+        const results = await updateBlocks(inputs.rootPath, inputs.key, inputs.value);
+        await displayResults(results);
+      });
+
+      document.getElementById('dryRunButton').addEventListener('click', async () => {
+        const inputs = getInputValues();
+        if (!inputs) return;
+        
+        const results = await dryRun(inputs.rootPath, inputs.key, inputs.value);
+        await displayResults(results);
       });
     </script>
   </body>
