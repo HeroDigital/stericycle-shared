@@ -35,7 +35,7 @@ const createCallback = (key, newValue, isDryRun = false) => async (item) => {
   // Die if not a document
   if (!item.path.endsWith('.html')) return;
 
-  if (item.path !== '/herodigital/stericycle-shared/en-ca/about/media-contacts.html') return;
+  // if (item.path !== '/herodigital/stericycle-shared/en-ca/about/media-contacts.html') return;
 
   const url = `https://admin.da.live/source${item.path}`;
   // Fetch the doc & convert to DOM
@@ -79,13 +79,14 @@ export async function dryRun(rootPath, key, value) {
   const results = [];
   const callback = createCallback(key, value, true);
   
-  const { crawlResults } = await crawl({
+  const { results: crawlResults } = await crawl({
     path: rootPath,
     callback: async (item) => {
       try {
         const result = await callback(item);
         if (result) {
           results.push(result);
+          return result;
         }
       } catch (error) {
         console.error(`Error processing ${item.path}:`, error);
@@ -94,7 +95,7 @@ export async function dryRun(rootPath, key, value) {
     concurrent: 50
   });
 
-  console.log('Found results:', crawlResults.length); // Debug log
+  // console.log('Found results:', crawlResults.length); // Debug log
 
   await crawlResults;
 

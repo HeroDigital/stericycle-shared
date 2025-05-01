@@ -44,6 +44,22 @@
       .results-table th {
         background-color: #f5f5f5;
       }
+      .metadata-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9em;
+      }
+      .metadata-table td {
+        padding: 4px 8px;
+        border: 1px solid #eee;
+      }
+      .metadata-row-changed {
+        background-color: #fff3cd;
+      }
+      .metadata-key {
+        font-weight: bold;
+        width: 30%;
+      }
     </style>
   </head>
   <body>
@@ -74,6 +90,77 @@
     <script type="module">
       import { updateBlocks, dryRun } from './block-updater.js';
       
+      function renderMetadataTable(htmlString) {
+        const dom = new DOMParser().parseFromString(htmlString, 'text/html');
+        const metadata = dom.querySelector('.metadata');
+        if (!metadata) return '';
+        
+        let tableHtml = '<table class="metadata-table">';
+        
+        Array.from(metadata.children).forEach(row => {
+          const [keyDiv, valueDiv] = row.children;
+          const key = keyDiv?.querySelector('p')?.textContent || '';
+          const value = valueDiv?.querySelector('p')?.textContent || '';
+          
+          tableHtml += `
+            <tr>
+              <td class="metadata-key">${key}</td>
+              <td>${value}</td>
+            </tr>
+          `;
+        });
+        
+        tableHtml += '</table>';
+        return tableHtml;
+      }
+      
+      function compareMetadataTables(before, after) {
+        const beforeDom = new DOMParser().parseFromString(before, 'text/html');
+        const afterDom = new DOMParser().parseFromString(after, 'text/html');
+        
+        const beforeMetadata = beforeDom.querySelector('.metadata');
+        const afterMetadata = afterDom.querySelector('.metadata');
+        
+        if (!beforeMetadata || !afterMetadata) return '';
+        
+        let tableHtml = '<table class="metadata-table">';
+        
+        // Create a map of before values for easy comparison
+        const beforeValues = new Map();
+        Array.from(beforeMetadata.children).forEach(row => {
+          const [keyDiv, valueDiv] = row.children;
+          const key = keyDiv?.textContent?.trim() || '';
+          const value = valueDiv?.textContent?.trim() || '';
+          beforeValues.set(key, value);
+        });
+        
+        // Compare with after values and generate table
+        Array.from(afterMetadata.children).forEach(row => {
+          const [keyDiv, valueDiv] = row.children;
+          const key = keyDiv?.textContent?.trim() || '';
+          const afterValue = valueDiv?.textContent?.trim() || '';
+          const beforeValue = beforeValues.get(key) || '';
+          
+          const isChanged = beforeValue !== afterValue;
+          tableHtml += `
+            <tr class="${isChanged ? 'metadata-row-changed' : ''}">
+              <td class="metadata-key">${key}</td>
+              <td>
+                <table class="metadata-comparison" style="width:100%">
+                  <tr>
+                    <td style="width:50%">${beforeValue}</td>
+                    <td style="width:50%">${afterValue}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          `;
+        });
+        
+        tableHtml += '</table>';
+        return tableHtml;
+      }
+
       document.getElementById('updateBlocksButton').addEventListener('click', () => {
         const rootPath = document.getElementById('rootPath').value;
         const key = document.getElementById('metadataKey').value;
@@ -107,8 +194,7 @@
           const row = document.createElement('tr');
           row.innerHTML = `
             <td>${path}</td>
-            <td><pre>${before}</pre></td>
-            <td><pre>${after}</pre></td>
+            <td colspan="2">${compareMetadataTables(before, after)}</td>
           `;
           tbody.appendChild(row);
         });
