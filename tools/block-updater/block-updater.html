@@ -58,7 +58,10 @@
       }
       .metadata-key {
         font-weight: bold;
-        width: 30%;
+        width: 20%;
+      }
+      .metadata-value {
+        width: 40%;
       }
     </style>
   </head>
@@ -79,8 +82,7 @@
           <thead>
             <tr>
               <th>Path</th>
-              <th>Before</th>
-              <th>After</th>
+              <th>Diff</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -123,7 +125,17 @@
         
         if (!beforeMetadata || !afterMetadata) return '';
         
-        let tableHtml = '<table class="metadata-table">';
+        let tableHtml = `
+          <table class="metadata-table">
+            <thead>
+              <tr>
+                <th class="metadata-key">Key</th>
+                <th class="metadata-value">Before</th>
+                <th class="metadata-value">After</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
         
         // Create a map of before values for easy comparison
         const beforeValues = new Map();
@@ -145,19 +157,13 @@
           tableHtml += `
             <tr class="${isChanged ? 'metadata-row-changed' : ''}">
               <td class="metadata-key">${key}</td>
-              <td>
-                <table class="metadata-comparison" style="width:100%">
-                  <tr>
-                    <td style="width:50%">${beforeValue}</td>
-                    <td style="width:50%">${afterValue}</td>
-                  </tr>
-                </table>
-              </td>
+              <td class="metadata-value">${beforeValue}</td>
+              <td class="metadata-value">${afterValue}</td>
             </tr>
           `;
         });
         
-        tableHtml += '</table>';
+        tableHtml += '</tbody></table>';
         return tableHtml;
       }
 
