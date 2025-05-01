@@ -12,28 +12,108 @@
       body {
         margin: 0;
       }
+      .metadata-updater {
+        padding: 20px;
+      }
+      .input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .input-group input {
+        padding: 8px;
+        flex: 1;
+      }
+      .button-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .results-table {
+        margin-top: 20px;
+      }
+      .results-table table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .results-table th, .results-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      .results-table th {
+        background-color: #f5f5f5;
+      }
     </style>
   </head>
   <body>
     <main>Hello from block-updater!</main>
     <div class="metadata-updater">
-      <input type="text" id="metadataKey" placeholder="Metadata key (e.g. locale)" />
-      <input type="text" id="metadataValue" placeholder="New value (e.g. en-ca)" />
-      <button id="updateBlocksButton">Update Blocks</button>
+      <div class="input-group">
+        <input type="text" id="rootPath" placeholder="Root path (e.g. /herodigital/stericycle-shared/en-ca)" value="/herodigital/stericycle-shared/en-ca" />
+        <input type="text" id="metadataKey" placeholder="Metadata key (e.g. locale)" />
+        <input type="text" id="metadataValue" placeholder="New value (e.g. en-ca)" />
+      </div>
+      <div class="button-group">
+        <button id="dryRunButton">Dry Run</button>
+        <button id="updateBlocksButton">Update Blocks</button>
+      </div>
+      <div id="dryRunResults" class="results-table" style="display: none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Path</th>
+              <th>Before</th>
+              <th>After</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
     <script type="module">
-      import { updateBlocks } from './block-updater.js';
+      import { updateBlocks, dryRun } from './block-updater.js';
       
       document.getElementById('updateBlocksButton').addEventListener('click', () => {
+        const rootPath = document.getElementById('rootPath').value;
         const key = document.getElementById('metadataKey').value;
         const value = document.getElementById('metadataValue').value;
         
-        if (!key || !value) {
-          alert('Please provide both a key and value');
+        if (!rootPath || !key || !value) {
+          alert('Please provide root path, key, and value');
           return;
         }
         
-        updateBlocks(key, value);
+        updateBlocks(rootPath, key, value);
+      });
+
+      document.getElementById('dryRunButton').addEventListener('click', async () => {
+        const rootPath = document.getElementById('rootPath').value;
+        const key = document.getElementById('metadataKey').value;
+        const value = document.getElementById('metadataValue').value;
+        
+        if (!rootPath || !key || !value) {
+          alert('Please provide root path, key, and value');
+          return;
+        }
+        
+        const resultsTable = document.getElementById('dryRunResults');
+        const tbody = resultsTable.querySelector('tbody');
+        tbody.innerHTML = ''; // Clear previous results
+        
+        const results = await dryRun(rootPath, key, value);
+        
+        results.forEach(({ path, before, after }) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${path}</td>
+            <td><pre>${before}</pre></td>
+            <td><pre>${after}</pre></td>
+          `;
+          tbody.appendChild(row);
+        });
+        
+        resultsTable.style.display = 'block';
       });
     </script>
   </body>

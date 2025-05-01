@@ -1,12 +1,13 @@
 // Import DA's public crawl function
 import { crawl } from 'https://da.live/nx/public/utils/tree.js';
 
-const path = '/herodigital/stericycle-shared/en-ca';
-
-// Helper function to update metadata value
+// Helper function to update metadata value and return both states
 function updateMetadataValue(dom, key, newValue) {
   const metadata = dom.querySelector('.metadata');
-  if (!metadata) return false;
+  if (!metadata) return { success: false };
+
+  // Store the original state
+  const beforeState = metadata.outerHTML;
 
   // Each row is a direct child div of .metadata
   const rows = metadata.children;
@@ -19,16 +20,22 @@ function updateMetadataValue(dom, key, newValue) {
       // Found the matching key, update the value
       if (valueDiv?.textContent) {
         valueDiv.textContent = newValue;
-        return true;
+        return { 
+          success: true, 
+          before: beforeState,
+          after: metadata.outerHTML
+        };
       }
     }
   }
-  return false;
+  return { success: false };
 }
 
-const createCallback = (key, newValue) => async (item) => {
+const createCallback = (key, newValue, isDryRun = false) => async (item) => {
   // Die if not a document
   if (!item.path.endsWith('.html')) return;
+
+  if (item.path !== '/herodigital/stericycle-shared/en-ca/about/media-contacts.html') return;
 
   const url = `https://admin.da.live/source${item.path}`;
   // Fetch the doc & convert to DOM
@@ -41,10 +48,19 @@ const createCallback = (key, newValue) => async (item) => {
   const dom = new DOMParser().parseFromString(text, 'text/html');
 
   // Update the metadata value with the provided key and value
-  const updated = updateMetadataValue(dom, key, newValue);
-  if (!updated) {
+  const result = updateMetadataValue(dom, key, newValue);
+  
+  if (!result.success) {
     console.log(`Could not update metadata for ${item.path}`);
     return;
+  }
+
+  if (isDryRun) {
+    return {
+      path: item.path,
+      before: result.before,
+      after: result.after
+    };
   }
 
   const html = dom.body.outerHTML;
@@ -58,9 +74,40 @@ const createCallback = (key, newValue) => async (item) => {
   console.log(`Update HTTP status: ${status} - Path: ${item.path}`);
 }
 
+// Dry run function that returns preview of changes
+export async function dryRun(rootPath, key, value) {
+  const results = [];
+  const callback = createCallback(key, value, true);
+  
+  const { crawlResults } = await crawl({
+    path: rootPath,
+    callback: async (item) => {
+      try {
+        const result = await callback(item);
+        if (result) {
+          results.push(result);
+        }
+      } catch (error) {
+        console.error(`Error processing ${item.path}:`, error);
+      }
+    },
+    concurrent: 50
+  });
+
+  console.log('Found results:', crawlResults.length); // Debug log
+
+  await crawlResults;
+
+  return results;
+}
+
 // Crawl the tree of content
-export async function updateBlocks(key, value) {
+export async function updateBlocks(rootPath, key, value) {
   console.log(`Updating metadata: ${key} = ${value}`);
-  const { results } = crawl({ path, callback: createCallback(key, value), concurrent: 50 });
+  const { results } = crawl({ 
+    path: rootPath, 
+    callback: createCallback(key, value), 
+    concurrent: 50 
+  });
   await results;
 }
