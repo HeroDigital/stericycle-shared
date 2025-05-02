@@ -2,7 +2,7 @@
 import { crawl } from 'https://da.live/nx/public/utils/tree.js';
 
 // Helper function to update metadata value and return both states
-function updateMetadataValue(dom, key, newValue) {
+function updateMetadataValue(dom, key, newValue, operation = 'modify') {
   const metadata = dom.querySelector('.metadata');
   if (!metadata) return { success: false };
 
@@ -11,27 +11,78 @@ function updateMetadataValue(dom, key, newValue) {
 
   // Each row is a direct child div of .metadata
   const rows = metadata.children;
+  
+  if (operation === 'add') {
+    // Check if key exists and update if it does
+    for (const row of rows) {
+      const [keyDiv, valueDiv] = row.children;
+      const keyText = keyDiv?.textContent?.trim();
+      
+      if (keyText === key) {
+        // Key exists, update the value
+        if (valueDiv?.textContent) {
+          valueDiv.textContent = newValue;
+          return { 
+            success: true, 
+            before: beforeState,
+            after: metadata.outerHTML,
+            action: 'modified' // This will trigger the yellow highlight
+          };
+        }
+      }
+    }
+
+    // Key doesn't exist, create new row
+    const newRow = document.createElement('div');
+    newRow.innerHTML = `
+      <div><p>${key}</p></div>
+      <div><p>${newValue}</p></div>
+    `;
+    metadata.appendChild(newRow);
+    
+    return {
+      success: true,
+      before: beforeState,
+      after: metadata.outerHTML,
+      action: 'added' // This will trigger the green highlight
+    };
+  }
+
+  // For modify and delete operations
   for (const row of rows) {
-    // Each row has two divs: key and value
     const [keyDiv, valueDiv] = row.children;
-    const keyText = keyDiv?.textContent;
+    const keyText = keyDiv?.textContent?.trim();
     
     if (keyText === key) {
-      // Found the matching key, update the value
-      if (valueDiv?.textContent) {
-        valueDiv.textContent = newValue;
-        return { 
-          success: true, 
+      if (operation === 'delete') {
+        row.remove();
+        return {
+          success: true,
           before: beforeState,
-          after: metadata.outerHTML
+          after: metadata.outerHTML,
+          action: 'deleted' // This will trigger the red highlight
         };
+      } else { // modify
+        if (valueDiv?.textContent) {
+          valueDiv.textContent = newValue;
+          return { 
+            success: true, 
+            before: beforeState,
+            after: metadata.outerHTML,
+            action: 'modified'
+          };
+        }
       }
     }
   }
-  return { success: false };
+  
+  return { 
+    success: false, 
+    error: operation === 'delete' ? 'Key not found' : 'Invalid row structure'
+  };
 }
 
-const createCallback = (key, newValue, isDryRun = false) => async (item) => {
+const createCallback = (key, newValue, isDryRun = false, operation = 'modify') => async (item) => {
   // Die if not a document
   if (!item.path.endsWith('.html')) return;
 
@@ -48,10 +99,10 @@ const createCallback = (key, newValue, isDryRun = false) => async (item) => {
   const dom = new DOMParser().parseFromString(text, 'text/html');
 
   // Update the metadata value with the provided key and value
-  const result = updateMetadataValue(dom, key, newValue);
+  const result = updateMetadataValue(dom, key, newValue, operation);
   
   if (!result.success) {
-    console.log(`Could not update metadata for ${item.path}`);
+    console.log(`Could not update metadata for ${item.path}: ${result.error || 'Unknown error'}`);
     return;
   }
 
@@ -71,13 +122,14 @@ const createCallback = (key, newValue, isDryRun = false) => async (item) => {
     path: item.path,
     before: result.before,
     after: result.after,
-    status: isDryRun ? 'dry-run' : `HTTP status: ${status}`
+    status: isDryRun ? 'dry-run' : `HTTP status: ${status}`,
+    action: result.action
   };
 }
 
-async function executeUpdate(rootPath, key, value, isDryRun = false) {
+async function executeUpdate(rootPath, key, value, isDryRun = false, operation = 'modify') {
   const results = [];
-  const callback = createCallback(key, value, isDryRun);
+  const callback = createCallback(key, value, isDryRun, operation);
   
   const { results: crawlResults } = await crawl({
     path: rootPath,
@@ -100,13 +152,13 @@ async function executeUpdate(rootPath, key, value, isDryRun = false) {
 }
 
 // Dry run function that returns preview of changes
-export async function dryRun(rootPath, key, value) {
-  return executeUpdate(rootPath, key, value, true);
+export async function dryRun(rootPath, key, value, operation = 'modify') {
+  return executeUpdate(rootPath, key, value, true, operation);
 }
 
 // Crawl the tree of content and update files
-export async function updateBlocks(rootPath, key, value) {
-  console.log(`Updating metadata: ${key} = ${value}`);
-  return executeUpdate(rootPath, key, value, false);
+export async function updateBlocks(rootPath, key, value, operation = 'modify') {
+  console.log(`${operation} metadata: ${key}${operation !== 'delete' ? ` = ${value}` : ''}`);
+  return executeUpdate(rootPath, key, value, false, operation);
 }
 

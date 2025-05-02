@@ -20,17 +20,36 @@
   color: #333;
 }
 
-.input-field input {
+/* Make all input fields and selects consistent */
+.input-field input,
+.input-field select {
+  width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+  height: 36px; /* Consistent height */
+  box-sizing: border-box; /* Include padding in width/height */
+  background-color: white;
 }
 
-.input-field input:focus {
+.input-field input:focus,
+.input-field select:focus {
   outline: none;
   border-color: #3498db;
   box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Remove browser-specific select styling */
+.input-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 32px; /* Space for the arrow */
 }
 
 .button-group {
@@ -97,6 +116,23 @@
 .metadata-table td {
   padding: 4px 8px;
   border: 1px solid #eee;
+}
+
+.metadata-row-deleted {
+  background-color: #ffe6e6;
+}
+
+.metadata-row-deleted .metadata-value {
+  text-decoration: line-through;
+  color: #dc3545;
+}
+
+.metadata-row-added {
+  background-color: #e6ffe6;
+}
+
+.metadata-row-added .metadata-value {
+  color: #28a745;
 }
 
 .metadata-row-changed {

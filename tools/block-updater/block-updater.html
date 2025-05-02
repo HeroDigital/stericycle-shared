@@ -19,10 +19,18 @@
           <input type="text" id="rootPath" placeholder="e.g. /herodigital/stericycle-shared/en-ca" value="/herodigital/stericycle-shared/en-ca" />
         </div>
         <div class="input-field">
+          <label for="operation">Operation</label>
+          <select id="operation">
+            <option value="modify">Modify Existing Value</option>
+            <option value="add">Add New Row</option>
+            <option value="delete">Delete Row</option>
+          </select>
+        </div>
+        <div class="input-field">
           <label for="metadataKey">Metadata Key</label>
           <input type="text" id="metadataKey" placeholder="e.g. locale" />
         </div>
-        <div class="input-field">
+        <div class="input-field value-field">
           <label for="metadataValue">New Value</label>
           <input type="text" id="metadataValue" placeholder="e.g. en-ca" />
         </div>
@@ -97,8 +105,10 @@
             <tbody>
         `;
         
-        // Create a map of before values for easy comparison
+        // Create maps of before and after values
         const beforeValues = new Map();
+        const afterValues = new Map();
+        
         Array.from(beforeMetadata.children).forEach(row => {
           const [keyDiv, valueDiv] = row.children;
           const key = keyDiv?.textContent?.trim() || '';
@@ -106,16 +116,31 @@
           beforeValues.set(key, value);
         });
         
-        // Compare with after values and generate table
         Array.from(afterMetadata.children).forEach(row => {
           const [keyDiv, valueDiv] = row.children;
           const key = keyDiv?.textContent?.trim() || '';
-          const afterValue = valueDiv?.textContent?.trim() || '';
+          const value = valueDiv?.textContent?.trim() || '';
+          afterValues.set(key, value);
+        });
+        
+        // Process all keys from both before and after states
+        const allKeys = new Set([...beforeValues.keys(), ...afterValues.keys()]);
+        
+        allKeys.forEach(key => {
           const beforeValue = beforeValues.get(key) || '';
+          const afterValue = afterValues.get(key) || '';
           
-          const isChanged = beforeValue !== afterValue;
+          // Determine row state
+          const isDeleted = beforeValue && !afterValue;
+          const isAdded = !beforeValue && afterValue;
+          const isChanged = beforeValue !== afterValue && !isDeleted && !isAdded;
+          
+          const rowClass = isDeleted ? 'metadata-row-deleted' : 
+                          isAdded ? 'metadata-row-added' :
+                          isChanged ? 'metadata-row-changed' : '';
+          
           tableHtml += `
-            <tr class="${isChanged ? 'metadata-row-changed' : ''}">
+            <tr class="${rowClass}">
               <td class="metadata-key">${key}</td>
               <td class="metadata-value">${beforeValue}</td>
               <td class="metadata-value">${afterValue}</td>
@@ -131,13 +156,19 @@
         const rootPath = document.getElementById('rootPath').value;
         const key = document.getElementById('metadataKey').value;
         const value = document.getElementById('metadataValue').value;
+        const operation = document.getElementById('operation').value;
         
-        if (!rootPath || !key || !value) {
-          alert('Please provide root path, key, and value');
+        if (!rootPath || !key) {
+          alert('Please provide root path and key');
           return null;
         }
         
-        return { rootPath, key, value };
+        if (operation !== 'delete' && !value) {
+          alert('Please provide a value');
+          return null;
+        }
+        
+        return { rootPath, key, value, operation };
       }
 
       function showLoading(show) {
@@ -185,13 +216,19 @@
         }
       }
 
+      // Add event listener for operation changes
+      document.getElementById('operation').addEventListener('change', (e) => {
+        const valueField = document.querySelector('.value-field');
+        valueField.style.display = e.target.value === 'delete' ? 'none' : 'block';
+      });
+
       document.getElementById('dryRunButton').addEventListener('click', async () => {
         const inputs = getInputValues();
         if (!inputs) return;
         
         showLoading(true);
         try {
-          const results = await dryRun(inputs.rootPath, inputs.key, inputs.value);
+          const results = await dryRun(inputs.rootPath, inputs.key, inputs.value, inputs.operation);
           await displayResults(results);
         } catch (error) {
           console.error('Error during dry run:', error);
@@ -207,7 +244,7 @@
         
         showLoading(true);
         try {
-          const results = await updateBlocks(inputs.rootPath, inputs.key, inputs.value);
+          const results = await updateBlocks(inputs.rootPath, inputs.key, inputs.value, inputs.operation);
           await displayResults(results);
         } catch (error) {
           console.error('Error during update:', error);
